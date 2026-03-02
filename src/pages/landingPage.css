@@ -14,12 +14,50 @@
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #f8fafc;
   color: #0f172a;
   line-height: 1.6;
   overflow-x: hidden;
+  position: relative;
+}
+
+/* ============================= */
+/* Animated Background Blobs */
+/* ============================= */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  z-index: -1;
+  animation: floatBlob 20s infinite alternate ease-in-out;
+}
+
+body::before {
+  top: -200px;
+  left: -200px;
+  background: rgba(30, 58, 138, 0.15);
+}
+
+body::after {
+  bottom: -200px;
+  right: -200px;
+  background: rgba(59, 130, 246, 0.15);
+  animation-delay: 6s;
+}
+
+@keyframes floatBlob {
+  from { transform: translate(0, 0); }
+  to { transform: translate(80px, 60px); }
 }
 
 /* ============================= */
@@ -34,50 +72,54 @@ body {
 /* ============================= */
 /* Header */
 /* ============================= */
-/* Container for the entire header */
 .landing-header {
-  display: flex;                /* Enables Flexbox layout */
-  justify-content: space-between; /* Pushes children (logo-box and nav) to opposite ends */
-  align-items: center;          /* Centers items vertically */
-  padding: 15px 40px;           /* Breathing room inside the header */
-  background-color: #ffffff;    /* Or your preferred header color */
-  border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 60px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-/* Logo box styling */
 .logo-box {
   display: flex;
   align-items: center;
-  gap: 12px;                    /* Space between logo and text */
+  gap: 12px;
 }
 
 .logo-img {
-  width: 200px;                  /* Adjusted size for header */
-  height: auto;
+  width: 170px;
 }
 
 .logo-title {
   font-size: 20px;
   font-weight: 700;
-  color: #004a99;               /* HDFC-style blue */
+  color: #1e3a8a;
 }
 
-/* Nav button styling */
+/* Login Button */
 .login-btn {
   display: flex;
   align-items: center;
-  gap: 8px;                     /* Space between icon and text */
-  padding: 8px 20px;
-  background-color: #004a99;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #1e3a8a;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 18px rgba(30, 58, 138, 0.25);
 }
 
 .login-btn:hover {
-  background-color: #003366;    /* Darkens on hover for interaction feedback */
+  background: #163172;
+  transform: translateY(-2px);
 }
 
 /* ============================= */
@@ -86,13 +128,13 @@ body {
 .landing-wrapper {
   flex: 1;
   width: 100%;
-  max-width: 1800px;
+  max-width: 1600px;
   margin: auto;
-  padding: clamp(40px, 6vw, 100px) clamp(20px, 5vw, 60px);
+  padding: clamp(40px, 6vw, 100px) clamp(20px, 5vw, 80px);
 
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: clamp(40px, 6vw, 80px);
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: clamp(40px, 6vw, 100px);
   align-items: center;
 }
 
@@ -102,13 +144,13 @@ body {
 .landing-left {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
 }
 
 .landing-title {
-  font-size: clamp(28px, 5vw, 52px);
+  font-size: clamp(34px, 5vw, 60px);
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .gradient-text {
@@ -125,58 +167,73 @@ body {
   width: fit-content;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: clamp(12px, 2vw, 16px) clamp(20px, 4vw, 30px);
+  gap: 10px;
+  padding: 14px 32px;
   border-radius: 999px;
   border: none;
   background: #1e3a8a;
   color: white;
   font-weight: 600;
+  font-size: 15px;
   cursor: pointer;
-  transition: 0.25s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(30, 58, 138, 0.3);
 }
 
 .get-started-btn:hover {
   background: #1d4ed8;
-  transform: translateY(-3px);
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px rgba(30, 58, 138, 0.35);
 }
 
 /* ============================= */
 /* Features Grid */
 /* ============================= */
 .features-grid {
-  margin-top: 20px;
+  margin-top: 30px;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* ============================= */
+/* Features Grid FIXED */
+/* ============================= */
+
+.features-grid {
+  margin-top: 30px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
 }
 
 .feature-card {
-  background: white;
-  border: 1px solid #e2e8f0;
-  padding: 18px;
-  border-radius: 14px;
+  padding: 28px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   text-align: center;
-  transition: 0.25s ease;
+  transition: all 0.3s ease;
 }
 
 .feature-card:hover {
-  border-color: #1e3a8a;
-  transform: translateY(-4px);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
 }
 
 .feature-icon {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: #1e3a8a;
 }
 
 .feature-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 /* ============================= */
-/* Right Section */
+/* Floating Illustration */
 /* ============================= */
 .landing-right {
   display: flex;
@@ -186,26 +243,124 @@ body {
 
 .illustration-wrapper {
   width: 100%;
-  max-width: clamp(800px, 40vw, 500px);
+  max-width: 520px;
+  padding: 30px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+  animation: floatImage 6s ease-in-out infinite;
+}
+
+@keyframes floatImage {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+  100% { transform: translateY(0px); }
 }
 
 .main-illustration {
   width: 100%;
-  height: auto;
-  border-radius: 16px;
+  border-radius: 18px;
+}
+
+/* ============================= */
+/* Stats Section */
+/* ============================= */
+.stats-section {
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+  padding: 100px 20px;
+  text-align: center;
+}
+
+.stat-box h2 {
+  font-size: 42px;
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.stat-box p {
+  color: #475569;
+}
+
+/* ============================= */
+/* SaaS Features Section */
+/* ============================= */
+.saas-features {
+  padding: 20px 20px;
+  text-align: center;
+}
+
+.section-title {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 60px;
+}
+
+.saas-grid {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.saas-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  transition: 0.3s ease;
+}
+
+.saas-card:hover {
+  transform: translateY(-10px);
+}
+
+.saas-card h3 {
+  margin-bottom: 12px;
+  color: #1e3a8a;
+}
+
+/* ============================= */
+/* CTA Section */
+/* ============================= */
+.cta-section {
+  text-align: center;
+  padding: 120px 20px;
+}
+
+.cta-section h2 {
+  font-size: 32px;
+  margin-bottom: 30px;
 }
 
 /* ============================= */
 /* Responsive */
 /* ============================= */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .landing-left {
     text-align: center;
     align-items: center;
   }
 
+  .features-grid {
+    justify-content: center;
+  }
+
+  .stats-section {
+    flex-direction: column;
+    gap: 40px;
+  }
+
   .get-started-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .landing-header {
+    padding: 16px 24px;
   }
 }
