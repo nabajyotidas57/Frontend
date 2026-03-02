@@ -1,0 +1,211 @@
+/* ============================= */
+/* Google Font */
+/* ============================= */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ============================= */
+/* Reset */
+/* ============================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ============================= */
+/* Main Container */
+/* ============================= */
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================= */
+/* Header */
+/* ============================= */
+/* Container for the entire header */
+.landing-header {
+  display: flex;                /* Enables Flexbox layout */
+  justify-content: space-between; /* Pushes children (logo-box and nav) to opposite ends */
+  align-items: center;          /* Centers items vertically */
+  padding: 15px 40px;           /* Breathing room inside the header */
+  background-color: #ffffff;    /* Or your preferred header color */
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* Logo box styling */
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;                    /* Space between logo and text */
+}
+
+.logo-img {
+  width: 200px;                  /* Adjusted size for header */
+  height: auto;
+}
+
+.logo-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #004a99;               /* HDFC-style blue */
+}
+
+/* Nav button styling */
+.login-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;                     /* Space between icon and text */
+  padding: 8px 20px;
+  background-color: #004a99;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.login-btn:hover {
+  background-color: #003366;    /* Darkens on hover for interaction feedback */
+}
+
+/* ============================= */
+/* Hero Section */
+/* ============================= */
+.landing-wrapper {
+  flex: 1;
+  width: 100%;
+  max-width: 1800px;
+  margin: auto;
+  padding: clamp(40px, 6vw, 100px) clamp(20px, 5vw, 60px);
+
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: clamp(40px, 6vw, 80px);
+  align-items: center;
+}
+
+/* ============================= */
+/* Left Section */
+/* ============================= */
+.landing-left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.landing-title {
+  font-size: clamp(28px, 5vw, 52px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.gradient-text {
+  color: #1e3a8a;
+}
+
+.subtitle-line1 {
+  font-size: clamp(16px, 2.5vw, 20px);
+  color: #475569;
+}
+
+/* CTA Button */
+.get-started-btn {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: clamp(12px, 2vw, 16px) clamp(20px, 4vw, 30px);
+  border-radius: 999px;
+  border: none;
+  background: #1e3a8a;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.get-started-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-3px);
+}
+
+/* ============================= */
+/* Features Grid */
+/* ============================= */
+.features-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.feature-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 18px;
+  border-radius: 14px;
+  text-align: center;
+  transition: 0.25s ease;
+}
+
+.feature-card:hover {
+  border-color: #1e3a8a;
+  transform: translateY(-4px);
+}
+
+.feature-icon {
+  margin-bottom: 8px;
+  color: #1e3a8a;
+}
+
+.feature-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ============================= */
+/* Right Section */
+/* ============================= */
+.landing-right {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.illustration-wrapper {
+  width: 100%;
+  max-width: clamp(800px, 40vw, 500px);
+}
+
+.main-illustration {
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+}
+
+/* ============================= */
+/* Responsive */
+/* ============================= */
+@media (max-width: 600px) {
+  .landing-left {
+    text-align: center;
+    align-items: center;
+  }
+
+  .get-started-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,260 @@
+/* ================================
+   GLOBAL
+================================= */
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: "Poppins", sans-serif;
+  background: #e9f1ff; /* cleaner enterprise look */
+  -webkit-font-smoothing: antialiased;
+}
+
+.center {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* ================================
+   LAYOUT (FULL SCREEN FIT)
+================================= */
+.layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ================================
+   SIDEBAR
+================================= */
+.sidebar {
+  width: 250px;
+  background: linear-gradient(180deg, #5b9df9, #4364f7);
+  padding: 30px 20px;
+  color: white;
+  border-radius: 0 30px 30px 0;
+  box-shadow: 8px 0 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.logo img {
+  width: 150px;
+  margin-bottom: 40px;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-item {
+  padding: 12px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-weight: 500;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(5px);
+}
+
+.menu-item.active {
+  background: white;
+  color: #4364f7;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* ================================
+   MAIN CONTAINER
+================================= */
+.main {
+  flex: 1;
+  padding: 30px 40px;
+  background: #f5f8ff;
+  border-radius: 30px 0 0 30px;
+  overflow-y: auto;
+}
+
+/* ================================
+   TOPBAR
+================================= */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.topbar h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #2d2d2d;
+}
+
+.profile {
+  position: relative;
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 12px;
+  transition: 0.2s ease;
+}
+
+.profile-info:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+/* ================================
+   DROPDOWN
+================================= */
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 55px;
+  background: white;
+  border-radius: 16px;
+  padding: 15px;
+  width: 220px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  animation: fadeIn 0.2s ease;
+  z-index: 100;
+}
+
+.dropdown div {
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.dropdown div:hover {
+  background: #f2f4ff;
+}
+
+.logout {
+  color: #e53935;
+  font-weight: 500;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================
+   WELCOME CARD
+================================= */
+.welcome-card {
+  margin-top: 10px;
+  padding: 35px 40px;
+  background: linear-gradient(135deg, #9face6, #74ebd5);
+  border-radius: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+}
+
+.welcome-card h2 {
+  margin: 0;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+.welcome-card p {
+  margin-top: 8px;
+  color: #2f3e55;
+}
+
+.session {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.welcome-card img {
+  width: 130px;
+}
+
+/* ================================
+   INFO CARDS
+================================= */
+.card-row {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 25px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  border-radius: 25px;
+  padding: 25px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+  transition: 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+}
+
+.glass-card h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #2d2d2d;
+}
+
+.role-badge {
+  padding: 8px 18px;
+  border-radius: 30px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ================================
+   CHART SECTION
+================================= */
+.chart-card {
+  margin-top: 35px;
+  background: white;
+  padding: 30px;
+  border-radius: 30px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.08);
+}
+
+.chart-card h3 {
+  margin-bottom: 20px;
+}
