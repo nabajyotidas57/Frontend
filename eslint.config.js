@@ -6,6 +6,8 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+
+  // 🔹 React/Vite files
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -24,6 +26,14 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+
+  // 🔹 Jest / Node files
+  {
+    files: ['jest.config.cjs', 'babel.config.cjs', 'jest.setup.js'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 ])

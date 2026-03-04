@@ -50,7 +50,7 @@ function Dashboard() {
   const roleTheme = {
     employee: "#4e73df",
     manager: "#7b2ff7",
-    ceo: "#d4af37",
+    admin: "#d4af37",
   };
 
   const themeColor = roleTheme[role] || "#4e73df";
@@ -187,7 +187,7 @@ function Dashboard() {
                   <p>Performance Review</p>
                 </>
               )}
-              {role === "ceo" && (
+              {role === "admin" && (
                 <>
                   <p>Teams Overview</p>
                   <p>Managers</p>

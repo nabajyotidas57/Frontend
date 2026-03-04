@@ -1,12 +1,11 @@
 /* eslint-disable no-undef */
+import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
-import { vi } from "vitest";
 import Dashboard from "./dashboard";
 import * as authApi from "../api/auth";
 
-// Mock recharts (prevents SVG errors in test)
-vi.mock("recharts", () => ({
+// Mock recharts
+jest.mock("recharts", () => ({
   ResponsiveContainer: ({ children }) => <div>{children}</div>,
   BarChart: ({ children }) => <div>{children}</div>,
   Bar: () => <div>Bar</div>,
@@ -26,12 +25,12 @@ describe("Dashboard Component", () => {
   };
 
   beforeEach(() => {
-    vi.spyOn(authApi, "getCurrentUser").mockResolvedValue(mockUser);
-    vi.spyOn(authApi, "logout").mockImplementation(() => {});
+    jest.spyOn(authApi, "getCurrentUser").mockResolvedValue(mockUser);
+    jest.spyOn(authApi, "logout").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   test("shows loading initially", () => {
@@ -67,7 +66,6 @@ describe("Dashboard Component", () => {
     render(<Dashboard />);
 
     await screen.findByTestId("profile-button");
-
     fireEvent.click(screen.getByTestId("profile-button"));
 
     expect(screen.getByText(/View Profile/i)).toBeInTheDocument();
