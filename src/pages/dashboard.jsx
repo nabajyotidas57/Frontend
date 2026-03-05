@@ -40,17 +40,20 @@ function Dashboard() {
   }, [user]);
 
   if (!user) return <div className="center">Loading...</div>;
-
+  // const role = [
+  //   ...(user?.roles || []),
+  //   ...(user?.realm_access?.roles || []),
+  // ]
   const role =
-    user?.roles?.[0]?.toLowerCase() ||
-    user?.realm_access?.roles?.[0]?.toLowerCase() ||
-    "employee";
+  user?.roles?.[0]?.toLowerCase() ||
+  user?.realm_access?.roles?.[0]?.toLowerCase() ||
+  "employee";
 
-  /* ROLE COLORS */
+
   const roleTheme = {
     employee: "#4e73df",
-    manager: "#7b2ff7",
-    admin: "#d4af37",
+    manager: "#2f8cf7",
+    admin: "#365f7c",
   };
 
   const themeColor = roleTheme[role] || "#4e73df";
@@ -67,7 +70,12 @@ function Dashboard() {
   return (
     <div className="layout">
       {/* Sidebar */}
-      <aside className="sidebar">
+    <aside
+      className="sidebar"
+      style={{
+        background: `linear-gradient(180deg, #232382, #011651)`,
+      }}
+    >
         <div className="logo">
           <img src={hdfcLogo} alt="HDFC" />
         </div>
@@ -106,7 +114,7 @@ function Dashboard() {
             style={{ backgroundColor: themeColor }}
           >
             <h1>{role.toUpperCase()} Dashboard</h1>
-
+            {/* <h1>Dashboard</h1> */}
             <div className="profile">
                 <div
                   className="profile-info"
@@ -142,7 +150,14 @@ function Dashboard() {
             style={{ borderLeft: `6px solid ${themeColor}` }}
           >
             <div>
-              <h2>Good Morning, {user.name} 👋</h2>
+              <h2>
+                {(() => {
+                  const hour = new Date().getHours();
+                  if (hour < 12) return "🌅 Good Morning";
+                  if (hour < 17) return "☀️ Good Afternoon";
+                  return "🌙 Good Evening";
+                })()}, {user.name} 👋
+              </h2>
               <p>
                 Welcome back to your{" "}
                 <strong>{role.toUpperCase()}</strong> portal.
@@ -164,39 +179,25 @@ function Dashboard() {
 
           {/* Info Cards */}
           <div className="card-row">
-            <div className="glass-card">
+            <div className="glass-card" style={{ "--card-color": themeColor }}>
               <h3 style={{ color: themeColor }}>Personal Info</h3>
               <p><b>Name:</b> {user.name}</p>
               <p><b>Email:</b> {user.email}</p>
               <p><b>Employee ID:</b> {user.employeeId}</p>
             </div>
 
-            <div className="glass-card">
-              <h3 style={{ color: themeColor }}>Access</h3>
-              {role === "employee" && (
-                <>
-                  <p>Customer Support Access</p>
-                  <p>Service Request Handling</p>
-                  <p>KYC Document Upload</p>
-                </>
-              )}
-              {role === "manager" && (
-                <>
-                  <p>Team Management</p>
-                  <p>Employee Monitoring</p>
-                  <p>Performance Review</p>
-                </>
-              )}
-              {role === "admin" && (
-                <>
-                  <p>Teams Overview</p>
-                  <p>Managers</p>
-                  <p>Company Analytics</p>
-                </>
-              )}
-            </div>
+            {role === "admin" && (
+              <div className="glass-card" style={{ "--card-color": themeColor }}>
+                <h3 style={{ color: themeColor }}>Access</h3>
+                <div className="badge-list">
+                  <span className="badge" style={{ backgroundColor: themeColor }}>Teams Overview</span>
+                  <span className="badge" style={{ backgroundColor: themeColor }}>Managers</span>
+                  <span className="badge" style={{ backgroundColor: themeColor }}>Company Analytics</span>
+                </div>
+              </div>
+            )}
 
-            <div className="glass-card">
+            <div className="glass-card" style={{ "--card-color": themeColor }}>
               <h3 style={{ color: themeColor }}>Status</h3>
               <p>🟢 Active</p>
               <p>🔒 Protected</p>
@@ -204,9 +205,8 @@ function Dashboard() {
           </div>
 
           {/* Chart */}
-          <div className="chart-card">
+          <div className="chart-card" style={{ "--chart-color": themeColor }}>
             <h3 style={{ color: themeColor }}>Target vs Reality</h3>
-
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
                 <XAxis dataKey="month" />

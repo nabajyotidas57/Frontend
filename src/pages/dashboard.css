@@ -18,14 +18,15 @@ body {
 
 /* Sidebar */
 .sidebar {
-  width: 240px;
-  background: linear-gradient(180deg, #3b5bdb, #1e3a8a);
+  width: 250px; /* 👈 changed width */
   color: white;
   display: flex;
   flex-direction: column;
   padding: 25px 20px;
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.15); /* 👈 right side shadow */
+  border-right: 1px solid rgba(255, 255, 255, 0.1); /* 👈 subtle border */
+  transition: background 0.3s ease;
 }
-
 .logo {
   text-align: center;
   margin-bottom: 35px;
@@ -38,24 +39,35 @@ body {
 .menu {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .menu-item {
-  padding: 12px 15px;
+  padding: 12px 18px;
   border-radius: 10px;
   cursor: pointer;
-  transition: 0.3s ease;
+  transition: all 0.25s ease;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.4px;
+  border-left: 3px solid transparent; /* 👈 invisible border by default */
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-left: 3px solid rgba(255, 255, 255, 0.6); /* 👈 appears on hover */
+  padding-left: 22px; /* 👈 slides right on hover */
+  transform: translateX(4px);
 }
 
 .menu-item.active {
-  background: white;
-  color: #3b5bdb;
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
   font-weight: 600;
+  border-left: 3px solid white; /* 👈 solid white for active */
+  padding-left: 22px;
 }
 
 /* Main */
@@ -66,7 +78,7 @@ body {
 }
 
 .content-wrapper {
-  background: #f8f9fc;
+  background: linear-gradient(135deg, #f0f4ff, #f8f9fc);
   padding: 30px;
   border-radius: 20px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
@@ -77,22 +89,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 30px;
+  padding: 14px 24px;        /* 👈 reduced padding */
   margin-bottom: 30px;
-  background: linear-gradient(135deg, #2249be, #0a2da2);
   border-radius: 18px;
-  box-shadow: 0 10px 25px rgba(34, 74, 190, 0.25);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   color: white;
-}
-
-.topbar h1 {
-  font-size: 22px;
-  font-weight: 600;
-}
-
-/* Profile */
-.profile {
-  position: relative;
+  min-height: 60px;          /* 👈 fixed height */
 }
 
 .profile-info {
@@ -104,8 +106,64 @@ body {
 
 .avatar {
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 38px;               /* 👈 fixed size */
+  height: 38px;
+  object-fit: cover;         /* 👈 prevents cut off */
+  border: 2px solid rgba(255, 255, 255, 0.5);  /* 👈 subtle white ring */
+  flex-shrink: 0;            /* 👈 prevents squishing */
+}
+
+/* Welcome Card */
+.welcome-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eef2ff);
+  padding: 30px 35px;
+  border-radius: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-card::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 160px;
+  height: 160px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 50%;
+}
+
+.welcome-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #1e293b;
+}
+
+.welcome-card p {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.welcome-card img {
+  width: 110px;
+  filter: drop-shadow(0 8px 15px rgba(0,0,0,0.1));
+}
+
+.session {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12px;
+  color: white;
+  background: rgba(99, 102, 241, 0.7);
+  padding: 4px 12px;
+  border-radius: 20px;
 }
 
 /* Dropdown */
@@ -114,57 +172,42 @@ body {
   right: 0;
   top: 55px;
   background: white;
-  width: 210px;
-  border-radius: 12px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
-  padding: 10px 0;
+  width: 220px;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  padding: 8px;
   z-index: 100;
   animation: fadeIn 0.2s ease-in-out;
-  color: #333; /* 🔥 important fix */
+  color: #333;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .dropdown div,
 .dropdown button {
-  padding: 10px 18px;
+  padding: 10px 14px;
   cursor: pointer;
   background: none;
   border: none;
   width: 100%;
   text-align: left;
   font-size: 14px;
+  border-radius: 10px;   /* 👈 rounded rows */
+  transition: 0.2s ease;
 }
 
 .dropdown div:hover,
 .dropdown button:hover {
-  background: #f2f4f9;
+  background: #f1f5f9;
+  padding-left: 18px;    /* 👈 slide on hover */
 }
 
 .logout {
-  color: red;
+  color: #ef4444;
   font-weight: 600;
 }
 
-/* Welcome */
-.welcome-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  padding: 30px;
-  border-radius: 20px;
-  margin-bottom: 30px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-}
-
-.welcome-card img {
-  width: 130px;
-}
-
-.session {
-  display: inline-block;
-  margin-top: 10px;
-  font-size: 14px;
-  color: #555;
+.logout:hover {
+  background: #fef2f2 !important;
 }
 
 /* Cards */
@@ -181,6 +224,7 @@ body {
   border-radius: 18px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
   transition: 0.3s ease;
+  border-top: 4px solid var(--card-color, #4e73df); /* 👈 add this */
 }
 
 .glass-card:hover {
@@ -193,12 +237,41 @@ body {
   font-size: 18px;
 }
 
+.badge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+
+.badge:hover {
+  opacity: 1;
+}
+
 /* Chart */
 .chart-card {
   background: white;
   padding: 30px;
   border-radius: 20px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+  border-top: 4px solid var(--chart-color, #4e73df); /* 👈 role-based border */
+  transition: 0.3s ease; /* 👈 smooth hover */
+}
+
+.chart-card:hover {
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12); /* 👈 shadow on hover */
+  transform: translateY(-3px);
 }
 
 .chart-card h3 {
@@ -215,14 +288,10 @@ body {
   font-weight: 600;
 }
 
+
+
 /* Animation */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
