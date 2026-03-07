@@ -1,231 +1,1175 @@
-import React from "react";
-import { useEffect, useState } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getCurrentUser, logout } from "../api/auth";
 import "./dashboard.css";
 import hdfcLogo from "../assets/hdfcbanklogo.png";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+  AreaChart, Area, LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
 
-function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [activeMenu, setActiveMenu] = useState("Overview");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(null);
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateEmpId(sub = "") {
+  const hash = sub.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return "EMP-" + String(1000 + (hash % 9000)).padStart(4, "0");
+}
 
-  /* FETCH USER */
+function detectRole(user) {
+  const email    = user?.email?.toLowerCase() || "";
+  const username = user?.preferred_username?.toLowerCase() || "";
+  const roles = [
+    ...(user?.roles || []),
+    ...(user?.realm_access?.roles || []),
+    ...(user?.resource_access
+      ? Object.values(user.resource_access).flatMap((r) => r?.roles || [])
+      : []),
+  ].map((r) => r.toLowerCase());
+
+  if (roles.some((r) => r.includes("admin"))                            || email.includes("admin")   || username.includes("admin"))   return "admin";
+  if (roles.some((r) => r.includes("manager") || r.includes("manger")) || email.includes("manager") || username.includes("manager")) return "manager";
+  if (roles.some((r) => r === "user"))                                                                                                 return "user";
+  return "employee";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════════════════
+const SIDEBAR_MENUS = {
+  admin:    [{ label: "Overview", icon: "⊞" }, { label: "User Management", icon: "👥" }, { label: "Security Logs", icon: "🔐" }, { label: "API Settings", icon: "⚙️" }, { label: "Audit Trail", icon: "📊" }, { label: "Configuration", icon: "🛠️" }],
+  manager:  [{ label: "Overview", icon: "⊞" }, { label: "Inbox", icon: "📩" }, { label: "Accounts", icon: "👤" }, { label: "Invoices", icon: "📄" }, { label: "Planning", icon: "📈" }, { label: "Settings", icon: "⚙️" }],
+  employee: [{ label: "Overview", icon: "⊞" }, { label: "Timeline", icon: "🕐" }, { label: "Activity", icon: "⚡" }, { label: "Messages", icon: "💬" }, { label: "Settings", icon: "⚙️" }],
+  user:     [{ label: "My Wallet", icon: "💳" }, { label: "Transactions", icon: "🔄" }, { label: "Cards", icon: "💴" }, { label: "Savings", icon: "🏦" }, { label: "Support", icon: "🎧" }],
+};
+
+const ROLE_THEME = { admin: "#365f7c", manager: "#2f8cf7", employee: "#4e73df", user: "#7c3aed" };
+const PAGE_TITLE  = { admin: "Administrator Console", manager: "Manager's Dashboard", employee: "Employee Dashboard", user: "User Dashboard" };
+
+// Dark-mode aware CSS variables injected at root
+function applyTheme(dark) {
+  const r = document.documentElement;
+  if (dark) {
+    r.style.setProperty("--bg-app",    "#0f172a");
+    r.style.setProperty("--bg-card",   "#1e293b");
+    r.style.setProperty("--bg-wrap",   "#0f172a");
+    r.style.setProperty("--text-main", "#f1f5f9");
+    r.style.setProperty("--text-sub",  "#94a3b8");
+    r.style.setProperty("--border",    "#334155");
+    r.style.setProperty("--hover-bg",  "#334155");
+  } else {
+    r.style.setProperty("--bg-app",    "#eef2fb");
+    r.style.setProperty("--bg-card",   "#ffffff");
+    r.style.setProperty("--bg-wrap",   "#f0f4ff");
+    r.style.setProperty("--text-main", "#1e293b");
+    r.style.setProperty("--text-sub",  "#64748b");
+    r.style.setProperty("--border",    "#e5e7eb");
+    r.style.setProperty("--hover-bg",  "#f1f5f9");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANIMATED COUNTER HOOK
+// ═══════════════════════════════════════════════════════════════════════════════
+function useCountUp(target, duration = 1200) {
+  const [val, setVal] = useState(0);
   useEffect(() => {
-    getCurrentUser().then((data) => {
-      const actualUser = data?.data ? data.data : data;
-      setUser(actualUser);
-    });
-  }, []);
+    const numeric = parseFloat(String(target).replace(/[^0-9.]/g, ""));
+    if (isNaN(numeric)) { setVal(target); return; }
+    const steps = 40;
+    const step  = numeric / steps;
+    let cur = 0;
+    const iv = setInterval(() => {
+      cur += step;
+      if (cur >= numeric) { setVal(numeric); clearInterval(iv); }
+      else setVal(cur);
+    }, duration / steps);
+    return () => clearInterval(iv);
+  }, [target, duration]);
 
-  /* SESSION TIMER */
-  useEffect(() => {
-    if (!user?.exp) return;
+  // Reconstruct with original prefix/suffix
+  const prefix = String(target).match(/^[^0-9]*/)?.[0] || "";
+  const suffix = String(target).match(/[^0-9.]+$/)?.[0] || "";
+  const decimals = String(target).includes(".") ? String(target).split(".")[1]?.length || 0 : 0;
+  return prefix + val.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
+}
 
-    const interval = setInterval(() => {
-      const remaining = user.exp - Math.floor(Date.now() / 1000);
-      setTimeLeft(remaining > 0 ? remaining : 0);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [user]);
-
-  if (!user) return <div className="center">Loading...</div>;
-  // const role = [
-  //   ...(user?.roles || []),
-  //   ...(user?.realm_access?.roles || []),
-  // ]
-  const role =
-  user?.roles?.[0]?.toLowerCase() ||
-  user?.realm_access?.roles?.[0]?.toLowerCase() ||
-  "employee";
-
-
-  const roleTheme = {
-    employee: "#4e73df",
-    manager: "#2f8cf7",
-    admin: "#365f7c",
-  };
-
-  const themeColor = roleTheme[role] || "#4e73df";
-
-  const chartData = [
-    { month: "Jan", reality: 4200, target: 5200 },
-    { month: "Feb", reality: 3800, target: 4700 },
-    { month: "Mar", reality: 4600, target: 5400 },
-    { month: "Apr", reality: 4000, target: 4800 },
-    { month: "May", reality: 5200, target: 6000 },
-    { month: "Jun", reality: 4900, target: 5800 },
-  ];
-
+// ═══════════════════════════════════════════════════════════════════════════════
+// TOAST SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+function ToastContainer({ toasts, onRemove }) {
   return (
-    <div className="layout">
-      {/* Sidebar */}
-    <aside
-      className="sidebar"
-      style={{
-        background: `linear-gradient(180deg, #232382, #011651)`,
-      }}
-    >
-        <div className="logo">
-          <img src={hdfcLogo} alt="HDFC" />
+    <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999,
+      display: "flex", flexDirection: "column", gap: 10, pointerEvents: "none" }}>
+      {toasts.map((t) => (
+        <div key={t.id} className="toast" style={{
+          background: t.type === "error" ? "#fef2f2" : t.type === "warning" ? "#fffbeb" : t.type === "success" ? "#f0fdf4" : "#f8fafc",
+          borderLeft: `4px solid ${t.type === "error" ? "#ef4444" : t.type === "warning" ? "#f59e0b" : t.type === "success" ? "#10b981" : "#6366f1"}`,
+          color: "#1e293b", padding: "12px 16px", borderRadius: 12,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.14)", fontSize: 14, fontWeight: 500,
+          minWidth: 280, display: "flex", alignItems: "center", gap: 10,
+          pointerEvents: "all", animation: "slideInRight 0.3s ease" }}>
+          <span style={{ fontSize: 18 }}>{t.type === "error" ? "🚨" : t.type === "warning" ? "⚠️" : t.type === "success" ? "✅" : "ℹ️"}</span>
+          <span style={{ flex: 1 }}>{t.message}</span>
+          <button onClick={() => onRemove(t.id)} style={{ background: "none", border: "none",
+            cursor: "pointer", fontSize: 18, color: "#94a3b8", padding: 0, lineHeight: 1 }}>×</button>
         </div>
+      ))}
+    </div>
+  );
+}
 
-        <div className="menu">
-          {[
-            "Overview",
-            "Timeline",
-            "Users",
-            "Activity",
-            "Messages",
-            "Settings",
-          ].map((item) => (
-            <div
-              key={item}
-              className={`menu-item ${activeMenu === item ? "active" : ""}`}
-              onClick={() => setActiveMenu(item)}
-              style={
-                activeMenu === item
-                  ? { backgroundColor: themeColor }
-                  : null
-              }
-            >
-              {item}
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+  const add = useCallback((message, type = "info", duration = 4000) => {
+    const id = Date.now() + Math.random();
+    setToasts((p) => [...p, { id, message, type }]);
+    if (duration > 0) setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), duration);
+    return id;
+  }, []);
+  const remove = useCallback((id) => setToasts((p) => p.filter((t) => t.id !== id)), []);
+  return { toasts, add, remove };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS PANEL
+// ═══════════════════════════════════════════════════════════════════════════════
+const SAMPLE_NOTIFICATIONS = [
+  { id: 1, icon: "💰", title: "Salary Credited",      body: "₹85,000 credited to your account",     time: "2 min ago",  unread: true,  color: "#10b981" },
+  { id: 2, icon: "🔐", title: "Login from new device",body: "Chrome · Mumbai · Mar 7 2026",          time: "15 min ago", unread: true,  color: "#f97316" },
+  { id: 3, icon: "📄", title: "Invoice #INV-0041 Paid",body: "Acme Corp paid $4,200",                 time: "1h ago",     unread: true,  color: "#6366f1" },
+  { id: 4, icon: "⚠️", title: "Failed login attempt", body: "3 failed attempts detected",            time: "3h ago",     unread: false, color: "#ef4444" },
+  { id: 5, icon: "🔄", title: "Session refreshed",    body: "Your session was auto-renewed",         time: "5h ago",     unread: false, color: "#2f8cf7" },
+  { id: 6, icon: "✅", title: "Profile updated",      body: "Your profile info was saved",           time: "Yesterday",  unread: false, color: "#10b981" },
+];
+
+function NotificationsPanel({ open, onClose, themeColor, dark }) {
+  const [notes, setNotes] = useState(SAMPLE_NOTIFICATIONS);
+  const unread = notes.filter((n) => n.unread).length;
+
+  if (!open) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 7000 }} onClick={onClose}>
+      <div style={{
+        position: "absolute", top: 68, right: 20, width: 360,
+        background: dark ? "#1e293b" : "#fff",
+        borderRadius: 18, boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
+        border: `1px solid ${dark ? "#334155" : "#e5e7eb"}`,
+        overflow: "hidden", animation: "fadeDown 0.2s ease",
+      }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "16px 20px", borderBottom: `1px solid ${dark ? "#334155" : "#f1f5f9"}` }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: dark ? "#f1f5f9" : "#1e293b" }}>
+            Notifications {unread > 0 && <span style={{ background: "#ef4444", color: "#fff",
+              borderRadius: 99, fontSize: 11, padding: "1px 7px", marginLeft: 6 }}>{unread}</span>}
+          </div>
+          <button onClick={() => setNotes((p) => p.map((n) => ({ ...n, unread: false })))}
+            style={{ fontSize: 12, color: themeColor, background: "none", border: "none",
+              cursor: "pointer", fontWeight: 600 }}>Mark all read</button>
+        </div>
+        {/* List */}
+        <div style={{ maxHeight: 380, overflowY: "auto" }}>
+          {notes.map((n) => (
+            <div key={n.id} onClick={() => setNotes((p) => p.map((x) => x.id === n.id ? { ...x, unread: false } : x))}
+              style={{ display: "flex", gap: 12, padding: "13px 20px", cursor: "pointer",
+                background: n.unread ? (dark ? "#1e3a4a" : `${n.color}08`) : "transparent",
+                borderBottom: `1px solid ${dark ? "#334155" : "#f8fafc"}`,
+                transition: "background 0.15s" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = dark ? "#263348" : "#f8fafc"}
+              onMouseLeave={(e) => e.currentTarget.style.background = n.unread ? (dark ? "#1e3a4a" : `${n.color}08`) : "transparent"}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: `${n.color}18`,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{n.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: dark ? "#f1f5f9" : "#1e293b" }}>{n.title}</span>
+                  {n.unread && <div style={{ width: 8, height: 8, borderRadius: "50%", background: themeColor, flexShrink: 0 }} />}
+                </div>
+                <div style={{ fontSize: 12, color: dark ? "#94a3b8" : "#64748b", marginTop: 2 }}>{n.body}</div>
+                <div style={{ fontSize: 11, color: dark ? "#64748b" : "#94a3b8", marginTop: 3 }}>{n.time}</div>
+              </div>
             </div>
           ))}
         </div>
+        <div style={{ padding: "12px 20px", textAlign: "center",
+          borderTop: `1px solid ${dark ? "#334155" : "#f1f5f9"}` }}>
+          <button style={{ fontSize: 13, color: themeColor, background: "none", border: "none",
+            cursor: "pointer", fontWeight: 600 }}>View all notifications →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFILE PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+function ProfilePage({ user, role, themeColor, dark, onClose }) {
+  const empId = user.employeeId || user.employee_id || generateEmpId(user.sub);
+  const [tab, setTab] = useState("info");
+
+  const tabs = [{ id: "info", label: "Profile Info" }, { id: "security", label: "Security" }, { id: "prefs", label: "Preferences" }];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 8500,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      onClick={onClose}>
+      <div style={{ background: dark ? "#1e293b" : "#fff", borderRadius: 22, width: "100%", maxWidth: 560,
+        boxShadow: "0 30px 80px rgba(0,0,0,0.22)", overflow: "hidden", animation: "fadeDown 0.25s ease" }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header banner */}
+        <div style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}bb)`,
+          padding: "32px 32px 24px", position: "relative" }}>
+          <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16,
+            background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8,
+            color: "#fff", cursor: "pointer", fontSize: 18, width: 32, height: 32,
+            display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(255,255,255,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 28, fontWeight: 700, color: "#fff", border: "3px solid rgba(255,255,255,0.5)",
+              flexShrink: 0 }}>
+              {(user.name || "U").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{user.name}</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", marginTop: 3 }}>{user.email}</div>
+              <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", color: "#fff",
+                borderRadius: 99, padding: "3px 10px", marginTop: 6, display: "inline-block",
+                fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{role}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", borderBottom: `1px solid ${dark ? "#334155" : "#f1f5f9"}`,
+          padding: "0 24px" }}>
+          {tabs.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              padding: "12px 16px", fontSize: 13, fontWeight: tab === t.id ? 700 : 500,
+              color: tab === t.id ? themeColor : (dark ? "#94a3b8" : "#64748b"),
+              background: "none", border: "none", borderBottom: `2px solid ${tab === t.id ? themeColor : "transparent"}`,
+              cursor: "pointer", transition: "all 0.2s" }}>{t.label}</button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div style={{ padding: "24px 32px", maxHeight: 360, overflowY: "auto" }}>
+          {tab === "info" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                ["Full Name",    user.name                 ],
+                ["Username",     user.preferred_username   ],
+                ["Email",        user.email                ],
+                ["Employee ID",  empId                     ],
+                ["Role",         role.toUpperCase()        ],
+                ["Account Sub",  user.sub?.slice(0, 18) + "…"],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between",
+                  padding: "10px 14px", background: dark ? "#0f172a" : "#f8fafc",
+                  borderRadius: 10 }}>
+                  <span style={{ fontSize: 13, color: dark ? "#94a3b8" : "#64748b", fontWeight: 500 }}>{label}</span>
+                  <span style={{ fontSize: 13, color: dark ? "#f1f5f9" : "#1e293b", fontWeight: 600 }}>{val || "—"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {tab === "security" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                { label: "Two-Factor Auth", val: "Enabled", col: "#10b981" },
+                { label: "Last Login",      val: "Today, 9:42 AM", col: null },
+                { label: "Login Device",    val: "Chrome / Mumbai", col: null },
+                { label: "Session Timeout", val: "15 minutes", col: null },
+                { label: "Password Changed",val: "14 days ago", col: null },
+              ].map(({ label, val, col }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between",
+                  padding: "10px 14px", background: dark ? "#0f172a" : "#f8fafc", borderRadius: 10 }}>
+                  <span style={{ fontSize: 13, color: dark ? "#94a3b8" : "#64748b", fontWeight: 500 }}>{label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: col || (dark ? "#f1f5f9" : "#1e293b") }}>{val}</span>
+                </div>
+              ))}
+              <button style={{ marginTop: 4, padding: "10px 16px", background: "#fef2f2",
+                color: "#ef4444", border: "none", borderRadius: 10, fontWeight: 600,
+                fontSize: 13, cursor: "pointer" }}>🔑 Change Password</button>
+            </div>
+          )}
+          {tab === "prefs" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                { label: "Email Notifications", checked: true  },
+                { label: "SMS Alerts",          checked: false },
+                { label: "Login Alerts",        checked: true  },
+                { label: "Monthly Reports",     checked: true  },
+              ].map(({ label, checked }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between",
+                  alignItems: "center", padding: "10px 14px",
+                  background: dark ? "#0f172a" : "#f8fafc", borderRadius: 10 }}>
+                  <span style={{ fontSize: 13, color: dark ? "#f1f5f9" : "#1e293b", fontWeight: 500 }}>{label}</span>
+                  <div style={{ width: 40, height: 22, borderRadius: 11,
+                    background: checked ? themeColor : "#e2e8f0",
+                    position: "relative", cursor: "pointer" }}>
+                    <div style={{ position: "absolute", top: 3, left: checked ? 21 : 3,
+                      width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                      transition: "left 0.2s", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEARCH BAR (Ctrl+K)
+// ═══════════════════════════════════════════════════════════════════════════════
+function SearchBar({ role, onNavigate, dark }) {
+  const [open, setOpen]   = useState(false);
+  const [query, setQuery] = useState("");
+  const inputRef          = useRef(null);
+  const allItems          = useMemo(() => SIDEBAR_MENUS[role] || [], [role]);
+  const filtered          = useMemo(() =>
+    query.trim() === "" ? allItems : allItems.filter((i) => i.label.toLowerCase().includes(query.toLowerCase())),
+    [query, allItems]);
+
+  useEffect(() => {
+    const h = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); setOpen(true); }
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, []);
+
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50); }, [open]);
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 8000,
+      display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 100 }}
+      onClick={() => setOpen(false)}>
+      <div style={{ background: dark ? "#1e293b" : "#fff", borderRadius: 16, width: "100%", maxWidth: 480,
+        boxShadow: "0 25px 60px rgba(0,0,0,0.2)", overflow: "hidden" }}
+        onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+          borderBottom: `1px solid ${dark ? "#334155" : "#f1f5f9"}` }}>
+          <span style={{ fontSize: 18, color: "#94a3b8" }}>🔍</span>
+          <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search menu…" style={{ flex: 1, border: "none", outline: "none",
+              fontSize: 15, color: dark ? "#f1f5f9" : "#1e293b", background: "transparent" }} />
+          <kbd style={{ fontSize: 11, background: dark ? "#334155" : "#f1f5f9", borderRadius: 6,
+            padding: "2px 6px", color: "#94a3b8", border: `1px solid ${dark ? "#475569" : "#e5e7eb"}` }}>ESC</kbd>
+        </div>
+        <div style={{ padding: 8, maxHeight: 300, overflowY: "auto" }}>
+          {filtered.length === 0
+            ? <div style={{ padding: "16px 12px", color: "#94a3b8", fontSize: 14, textAlign: "center" }}>No results</div>
+            : filtered.map((item) => (
+              <div key={item.label} onClick={() => { onNavigate(item.label); setOpen(false); setQuery(""); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
+                  borderRadius: 8, cursor: "pointer", fontSize: 14, color: dark ? "#f1f5f9" : "#475569" }}
+                onMouseEnter={(e) => e.currentTarget.style.background = dark ? "#334155" : "#f8fafc"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <span style={{ fontSize: 18 }}>{item.icon}</span><span>{item.label}</span>
+              </div>
+            ))}
+        </div>
+        <div style={{ padding: "8px 18px", borderTop: `1px solid ${dark ? "#334155" : "#f1f5f9"}`,
+          fontSize: 12, color: "#94a3b8", display: "flex", gap: 16 }}>
+          <span>↵ select</span><span>ESC close</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+function Skeleton({ width = "100%", height = 16, radius = 8, style = {} }) {
+  return <div style={{ width, height, borderRadius: radius, background: "linear-gradient(90deg,#e5e7eb 25%,#f3f4f6 50%,#e5e7eb 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", ...style }} />;
+}
+
+function DashboardSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "28px 32px", borderLeft: "6px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
+          <Skeleton width="40%" height={24} /><Skeleton width="25%" height={14} /><Skeleton width="160px" height={28} radius={20} />
+        </div>
+        <Skeleton width={90} height={90} radius={12} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+        {[1,2,3].map((i) => (
+          <div key={i} style={{ background: "var(--bg-card)", borderRadius: 18, padding: 22, borderTop: "4px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
+            <Skeleton width="60%" height={12} /><Skeleton width="45%" height={28} /><Skeleton width="100%" height={36} radius={4} />
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: 28, borderTop: "4px solid var(--border)" }}>
+        <Skeleton width="30%" height={18} style={{ marginBottom: 20 }} /><Skeleton width="100%" height={250} radius={8} />
+      </div>
+    </div>
+  );
+}
+
+function Sparkline({ data, color, width = 100, height = 32 }) {
+  const max = Math.max(...data), min = Math.min(...data);
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / (max - min || 1)) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg width={width} height={height} style={{ overflow: "visible", display: "block" }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={`0,${height} ${pts} ${width},${height}`} fill={`${color}25`} stroke="none" />
+    </svg>
+  );
+}
+
+function ProgressBar({ value, color }) {
+  return (
+    <div style={{ background: "var(--border)", borderRadius: 99, height: 7, width: "100%", overflow: "hidden" }}>
+      <div style={{ width: `${value}%`, background: color, height: "100%", borderRadius: 99, transition: "width 0.8s ease" }} />
+    </div>
+  );
+}
+
+function DonutRing({ segments, total, label }) {
+  const r = 52, cx = 64, cy = 64, circ = 2 * Math.PI * r;
+  const withOffsets = segments.reduce((acc, seg) => {
+    const prevCum = acc.length > 0 ? acc[acc.length - 1].cumulative : 0;
+    const frac = seg.value / total;
+    return [...acc, { ...seg, frac, cumulative: prevCum + frac }];
+  }, []);
+  return (
+    <svg width="128" height="128" viewBox="0 0 128 128">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth="18" />
+      {withOffsets.map((seg, i) => {
+        const dash = seg.frac * circ, offset = circ - (seg.cumulative - seg.frac) * circ;
+        return <circle key={seg.color + i} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color} strokeWidth="18" strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={offset} transform="rotate(-90 64 64)" style={{ transition: "stroke-dasharray 0.9s ease" }} />;
+      })}
+      <text x={cx} y={cy - 5} textAnchor="middle" fontSize="18" fontWeight="800" fill="var(--text-main)">{total.toLocaleString()}</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fill="var(--text-sub)">{label}</text>
+    </svg>
+  );
+}
+
+function KpiCard({ label, val, trend, up, themeColor, children }) {
+  const animated = useCountUp(val);
+  return (
+    <div className="glass-card" style={{ "--card-color": themeColor }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: "var(--text-sub)", textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: up ? "#10b981" : "#ef4444",
+          background: up ? "#d1fae5" : "#fee2e2", borderRadius: 99, padding: "2px 8px" }}>{trend}</span>
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 800, color: "var(--text-main)", marginBottom: children ? 8 : 0 }}>{animated}</div>
+      {children}
+    </div>
+  );
+}
+
+function ComingSoon({ item, themeColor }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", minHeight: 340, gap: 16 }}>
+      <div style={{ fontSize: 56 }}>{item?.icon || "📄"}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text-main)" }}>{item?.label}</div>
+      <div style={{ fontSize: 14, color: "var(--text-sub)", textAlign: "center", maxWidth: 300 }}>
+        This section is coming soon. Stay tuned!
+      </div>
+      <div style={{ background: themeColor, color: "#fff", borderRadius: 99,
+        padding: "8px 22px", fontSize: 13, fontWeight: 600 }}>Coming Soon</div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN OVERVIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+function AdminOverview({ user, themeColor }) {
+  const chartData = [
+    { period: "Mon", sessions: 380, failed: 23 }, { period: "Tue", sessions: 520, failed: 18 },
+    { period: "Wed", sessions: 450, failed: 31 }, { period: "Thu", sessions: 680, failed: 12 },
+    { period: "Fri", sessions: 720, failed: 9  }, { period: "Sat", sessions: 650, failed: 15 },
+    { period: "Sun", sessions: 800, failed: 7  },
+  ];
+  const kpis    = [
+    { label: "Total Users",     val: "14,203", trend: "+8%",  up: true  },
+    { label: "Active Sessions", val: "384",    trend: "+15%", up: true  },
+    { label: "Failed Logins",   val: "23",     trend: "-41%", up: true  },
+    { label: "Audit Events",    val: "1,204",  trend: "+2%",  up: false },
+  ];
+  const users   = [
+    { name: "Alice Chen",  email: "alice@bank.io",  role: "User",    status: "Active",    last: "2m ago",   av: "AC" },
+    { name: "Bob Reyes",   email: "bob@bank.io",    role: "Manager", status: "Active",    last: "14m ago",  av: "BR" },
+    { name: "David Kim",   email: "david@bank.io",  role: "User",    status: "Suspended", last: "2 days",   av: "DK" },
+    { name: "Emeka Osei",  email: "emeka@bank.io",  role: "Analyst", status: "Active",    last: "1h ago",   av: "EO" },
+  ];
+  const auditLogs = [
+    { icon: "🔑", ev: "Admin login",    actor: user?.preferred_username || "admin", time: "Just now",  col: "#10b981" },
+    { icon: "🛡️", ev: "Role updated",  actor: "system",                             time: "5 min ago", col: "#f97316" },
+    { icon: "🚫", ev: "Failed login",  actor: "unknown",                             time: "12 min",    col: "#ef4444" },
+    { icon: "📤", ev: "Data export",   actor: "manager01",                           time: "1h ago",    col: "#6366f1" },
+    { icon: "💾", ev: "Backup",        actor: "system",                              time: "3h ago",    col: "#10b981" },
+  ];
+  return (
+    <>
+      <div className="welcome-card" style={{ borderLeft: `6px solid ${themeColor}`, flexWrap: "wrap", gap: 24 }}>
+        {[{ label: "System Status", val: "🟢 Operational" }, { label: "Active Sessions", val: "384" }, { label: "DB Uptime", val: "99.9%" }, { label: "Last Backup", val: "3h ago" }, { label: "Pending Alerts", val: "⚠️ 3 Critical" }]
+          .map(({ label, val }) => (
+            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 11, color: "var(--text-sub)", textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)" }}>{val}</span>
+            </div>
+          ))}
+      </div>
+      <div className="card-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        {kpis.map((k) => <KpiCard key={k.label} {...k} themeColor={themeColor} />)}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+        <div className="chart-card" style={{ "--chart-color": themeColor }}>
+          <h3 style={{ color: themeColor }}>Sessions vs Failed Logins</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="gs" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={themeColor} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={themeColor} stopOpacity={0}    />
+                </linearGradient>
+                <linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}   />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="period" /><YAxis /><Tooltip /><Legend />
+              <Area type="monotone" dataKey="sessions" stroke={themeColor} fill="url(#gs)" strokeWidth={2} />
+              <Area type="monotone" dataKey="failed"   stroke="#ef4444"   fill="url(#gf)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor, marginBottom: 16 }}>System Health</h3>
+          {[{ label: "CPU Usage", val: 34, color: themeColor }, { label: "Memory", val: 61, color: "#f97316" }, { label: "Disk", val: 48, color: "#10b981" }, { label: "Network I/O", val: 72, color: "#6366f1" }].map((m) => (
+            <div key={m.label} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontSize: 13, color: "var(--text-sub)" }}>{m.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: m.color }}>{m.val}%</span>
+              </div>
+              <ProgressBar value={m.val} color={m.color} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ color: themeColor, margin: 0 }}>User Management</h3>
+            <button style={{ background: themeColor, color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>+ Add User</button>
+          </div>
+          {users.map((u, i) => (
+            <div key={u.email} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < users.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: themeColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{u.av}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-main)" }}>{u.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-sub)" }}>{u.email}</div>
+              </div>
+              <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 99, background: u.status === "Active" ? "#d1fae5" : "#fee2e2", color: u.status === "Active" ? "#10b981" : "#ef4444", fontWeight: 600 }}>{u.status}</span>
+              <span style={{ fontSize: 12, color: "var(--text-sub)", minWidth: 60 }}>{u.last}</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                {["✏️","🗑️"].map((ic) => <button key={ic} style={{ background: "var(--hover-bg)", border: "none", borderRadius: 6, width: 28, height: 28, cursor: "pointer", fontSize: 14 }}>{ic}</button>)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor, marginBottom: 16 }}>Audit Log</h3>
+          {auditLogs.map((e) => (
+            <div key={e.ev} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${e.col}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{e.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-main)" }}>{e.ev}</div>
+                <div style={{ fontSize: 12, color: "var(--text-sub)" }}>by {e.actor}</div>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-sub)" }}>{e.time}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MANAGER OVERVIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+function ManagerOverview({ themeColor }) {
+  const chartData = [
+    { month: "Jan", revenue: 120, target: 150 }, { month: "Feb", revenue: 135, target: 150 },
+    { month: "Mar", revenue: 118, target: 140 }, { month: "Apr", revenue: 145, target: 160 },
+    { month: "May", revenue: 160, target: 170 }, { month: "Jun", revenue: 152, target: 165 },
+    { month: "Jul", revenue: 170, target: 180 }, { month: "Aug", revenue: 165, target: 175 },
+    { month: "Sep", revenue: 180, target: 190 }, { month: "Oct", revenue: 175, target: 185 },
+    { month: "Nov", revenue: 195, target: 200 }, { month: "Dec", revenue: 210, target: 210 },
+  ];
+  const kpis    = [
+    { label: "Total Revenue",    val: "$284K", trend: "+12%", up: true  },
+    { label: "Managed Accounts", val: "1,482", trend: "+4%",  up: true  },
+    { label: "Invoices Sent",    val: "327",   trend: "-3%",  up: false },
+    { label: "Open Tickets",     val: "14",    trend: "-22%", up: true  },
+  ];
+  const team    = [{ name: "Sarah Johnson", role: "Senior Analyst", perf: 92, av: "SJ" }, { name: "Mike Chen", role: "Risk Manager", perf: 85, av: "MC" }, { name: "Priya Patel", role: "Compliance Lead", perf: 78, av: "PP" }, { name: "James Lee", role: "Client Relations", perf: 95, av: "JL" }];
+  const invoices= [{ id: "#INV-0041", client: "Acme Corp", amt: "$4,200", status: "Paid" }, { id: "#INV-0040", client: "Globex Ltd", amt: "$1,800", status: "Pending" }, { id: "#INV-0039", client: "Initech", amt: "$9,500", status: "Paid" }, { id: "#INV-0038", client: "Umbrella Inc", amt: "$640", status: "Overdue" }];
+  return (
+    <>
+      <div className="card-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        {kpis.map((k) => <KpiCard key={k.label} {...k} themeColor={themeColor} />)}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+        <div className="chart-card" style={{ "--chart-color": themeColor }}>
+          <h3 style={{ color: themeColor }}>Revenue vs Target</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={chartData}>
+              <XAxis dataKey="month" /><YAxis /><Tooltip /><Legend />
+              <Line type="monotone" dataKey="revenue" stroke={themeColor}  strokeWidth={3} dot={{ fill: themeColor, r: 4 }} />
+              <Line type="monotone" dataKey="target"  stroke="#e2e8f0"     strokeWidth={2} strokeDasharray="6 4" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor, marginBottom: 16 }}>Spend Mix</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <DonutRing total={6870} label="Total" segments={[{ value: 1332, color: themeColor }, { value: 2302, color: "#a78bfa" }, { value: 1899, color: "#38bdf8" }, { value: 1337, color: "#fb923c" }]} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[["Online","$1,332",themeColor],["Entertain","$2,302","#a78bfa"],["Services","$1,899","#38bdf8"],["Shopping","$1,337","#fb923c"]].map(([l,v,c]) => (
+                <div key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 12, color: "var(--text-sub)" }}>{l}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>{v}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor, marginBottom: 16 }}>Team Performance</h3>
+          {team.map((m) => (
+            <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: themeColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{m.av}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-main)" }}>{m.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-sub)" }}>{m.role}</div>
+                  </div>
+                  <span style={{ fontWeight: 700, color: themeColor }}>{m.perf}%</span>
+                </div>
+                <ProgressBar value={m.perf} color={themeColor} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor, marginBottom: 16 }}>Recent Invoices</h3>
+          {invoices.map((inv, i) => (
+            <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < invoices.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-main)" }}>{inv.id}</div>
+                <div style={{ fontSize: 12, color: "var(--text-sub)" }}>{inv.client}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)", marginBottom: 4 }}>{inv.amt}</div>
+                <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 99, fontWeight: 600, background: inv.status === "Paid" ? "#d1fae5" : inv.status === "Overdue" ? "#fee2e2" : "#fef9c3", color: inv.status === "Paid" ? "#10b981" : inv.status === "Overdue" ? "#ef4444" : "#ca8a04" }}>{inv.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EMPLOYEE OVERVIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+function EmployeeOverview({ user, themeColor }) {
+  const empId = user.employeeId || user.employee_id || generateEmpId(user.sub);
+  const chartData = [
+    { month: "Jan", reality: 4200, target: 5200 }, { month: "Feb", reality: 3800, target: 4700 },
+    { month: "Mar", reality: 4600, target: 5400 }, { month: "Apr", reality: 4000, target: 4800 },
+    { month: "May", reality: 5200, target: 6000 }, { month: "Jun", reality: 4900, target: 5800 },
+  ];
+  const kpis = [
+    { label: "Savings",   val: "$12,400", trend: "+5.2%", up: true,  data: [1200,1250,1180,1300,1420,1500,1620,1700] },
+    { label: "Spending",  val: "$1,890",  trend: "-2.1%", up: false, data: [340,380,290,420,380,340,410,380]         },
+    { label: "Transfers", val: "$3,240",  trend: "+11%",  up: true,  data: [800,950,870,1100,1050,1200,1150,1300]    },
+  ];
+  const transactions = [
+    { icon: "🛍️", name: "Amazon Shopping", amt: "-$89.99",  col: "#ef4444" },
+    { icon: "💡", name: "Electric Bill",   amt: "-$124.00", col: "#ef4444" },
+    { icon: "💰", name: "Salary Credit",   amt: "+$3,240",  col: "#10b981" },
+    { icon: "🎵", name: "Spotify",         amt: "-$9.99",   col: "#ef4444" },
+  ];
+  return (
+    <>
+      <div className="card-row">
+        {kpis.map((k) => (
+          <KpiCard key={k.label} {...k} themeColor={themeColor}>
+            <Sparkline data={k.data} color={k.up ? themeColor : "#ef4444"} width={120} height={36} />
+          </KpiCard>
+        ))}
+      </div>
+      <div className="card-row">
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor }}>Personal Info</h3>
+          {[["Name", user.name], ["Email", user.email], ["Employee ID", empId], ["Username", user.preferred_username]].map(([l,v]) => (
+            <p key={l}><b>{l}:</b> {v}</p>
+          ))}
+        </div>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor }}>Recent Transactions</h3>
+          {transactions.map((tx) => (
+            <div key={tx.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 20 }}>{tx.icon}</span>
+              <span style={{ flex: 1, fontSize: 13, color: "var(--text-sub)" }}>{tx.name}</span>
+              <span style={{ fontWeight: 700, fontSize: 13, color: tx.col }}>{tx.amt}</span>
+            </div>
+          ))}
+        </div>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor }}>Status</h3>
+          <p style={{ marginBottom: 6 }}>🟢 Active</p>
+          <p>🔒 Protected</p>
+          <h3 style={{ color: themeColor, marginTop: 16, marginBottom: 8 }}>Quick Actions</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {[["💸","Send"],["📥","Receive"],["🔄","Exchange"],["📋","Statement"]].map(([ic,l]) => (
+              <div key={l} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px",
+                background: "var(--hover-bg)", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                color: "var(--text-sub)", fontWeight: 500 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = `${themeColor}15`}
+                onMouseLeave={(e) => e.currentTarget.style.background = "var(--hover-bg)"}>
+                <span>{ic}</span>{l}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="chart-card" style={{ "--chart-color": themeColor }}>
+        <h3 style={{ color: themeColor }}>Target vs Reality</h3>
+        <ResponsiveContainer width="100%" height={270}>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={themeColor} stopOpacity={0.2} />
+                <stop offset="95%" stopColor={themeColor} stopOpacity={0}   />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="month" /><YAxis /><Tooltip /><Legend />
+            <Area type="monotone" dataKey="reality" stroke={themeColor} fill="url(#gr)" strokeWidth={2.5} />
+            <Area type="monotone" dataKey="target"  stroke="#e2e8f0"   fill="none"       strokeWidth={2} strokeDasharray="6 4" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// USER OVERVIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+function UserOverview({ user, themeColor }) {
+  const empId = user.employeeId || user.employee_id || generateEmpId(user.sub);
+  const spendData = [
+    { name: "Food",      value: 340, color: "#f97316" },
+    { name: "Shopping",  value: 520, color: themeColor },
+    { name: "Bills",     value: 280, color: "#ef4444"  },
+    { name: "Subs",      value: 160, color: "#10b981"  },
+    { name: "Travel",    value: 190, color: "#6366f1"  },
+  ];
+  const kpis = [
+    { label: "Balance",  val: "$24,830", trend: "+3.2%", up: true,  data: [22000,22400,22100,23000,23500,24000,24200,24830] },
+    { label: "Spending", val: "$1,890",  trend: "-2.1%", up: false, data: [340,380,290,420,380,340,410,380]                  },
+    { label: "Savings",  val: "$12,400", trend: "+5.2%", up: true,  data: [1200,1250,1180,1300,1420,1500,1620,1700]          },
+  ];
+  const txns = [
+    { icon: "🛍️", name: "Amazon Shopping", cat: "Shopping",     amt: "-$89.99",  col: "#ef4444", date: "Today"    },
+    { icon: "💡", name: "Electric Bill",   cat: "Utilities",    amt: "-$124.00", col: "#ef4444", date: "Yesterday" },
+    { icon: "💰", name: "Salary Credit",   cat: "Income",       amt: "+$3,240",  col: "#10b981", date: "Mar 1"    },
+    { icon: "🎵", name: "Spotify",         cat: "Subscription", amt: "-$9.99",   col: "#ef4444", date: "Feb 28"   },
+    { icon: "🍕", name: "Domino's Pizza",  cat: "Food",         amt: "-$24.50",  col: "#ef4444", date: "Feb 27"   },
+  ];
+  return (
+    <>
+      {/* Balance hero */}
+      <div className="glass-card" style={{ "--card-color": themeColor, background: `linear-gradient(135deg, ${themeColor}12, var(--bg-card))` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 13, color: "var(--text-sub)", marginBottom: 4 }}>Total Balance</div>
+            <div style={{ fontSize: 38, fontWeight: 900, color: "var(--text-main)" }}>
+              $24,830<span style={{ fontSize: 20, fontWeight: 600, color: "var(--text-sub)" }}>.50</span>
+            </div>
+            <div style={{ display: "flex", gap: 20, marginTop: 10 }}>
+              <div><span style={{ fontSize: 12, color: "var(--text-sub)" }}>Income </span><span style={{ fontWeight: 700, color: "#10b981" }}>+$3,240</span></div>
+              <div><span style={{ fontSize: 12, color: "var(--text-sub)" }}>Expenses </span><span style={{ fontWeight: 700, color: "#ef4444" }}>-$1,890</span></div>
+            </div>
+          </div>
+          <div style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}bb)`,
+            borderRadius: 16, padding: "20px 28px", color: "#fff", minWidth: 210, boxShadow: `0 12px 30px ${themeColor}40` }}>
+            <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 10, letterSpacing: 3 }}>•••• •••• •••• 4291</div>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>Visa Platinum</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>{user.name}</div>
+          </div>
+        </div>
+      </div>
+      <div className="card-row">
+        {kpis.map((k) => (
+          <KpiCard key={k.label} {...k} themeColor={themeColor}>
+            <Sparkline data={k.data} color={k.up ? themeColor : "#ef4444"} width={120} height={36} />
+          </KpiCard>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20 }}>
+        <div className="glass-card" style={{ "--card-color": themeColor }}>
+          <h3 style={{ color: themeColor, marginBottom: 14 }}>Recent Transactions</h3>
+          {txns.map((tx) => (
+            <div key={tx.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: `${tx.col}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{tx.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-main)" }}>{tx.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-sub)" }}>{tx.cat} · {tx.date}</div>
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 14, color: tx.col }}>{tx.amt}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="glass-card" style={{ "--card-color": themeColor }}>
+            <h3 style={{ color: themeColor, marginBottom: 12 }}>Spending Breakdown</h3>
+            <ResponsiveContainer width="100%" height={150}>
+              <PieChart>
+                <Pie data={spendData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                  {spendData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [`$${v}`, n]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+              {spendData.map((s) => (
+                <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-sub)" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+                  {s.name}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="glass-card" style={{ "--card-color": themeColor }}>
+            <h3 style={{ color: themeColor, marginBottom: 10 }}>Account Info</h3>
+            <p><b>Name:</b> {user.name}</p>
+            <p><b>Email:</b> {user.email}</p>
+            <p><b>Account ID:</b> {empId}</p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════════
+function Dashboard() {
+  const [user, setUser]                   = useState(null);
+  const [isLoading, setIsLoading]         = useState(true);
+  const [activeMenu, setActiveMenu]       = useState(null);
+  const [showDropdown, setShowDropdown]   = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile]     = useState(false);
+  const [sidebarOpen, setSidebarOpen]     = useState(true);
+  const [mobileSidebar, setMobileSidebar] = useState(false);
+  const [dark, setDark]                   = useState(false);
+  const [timeLeft, setTimeLeft]           = useState(null);
+  const profileRef                        = useRef(null);
+  const { toasts, add: addToast, remove: removeToast } = useToast();
+
+  // Apply dark/light CSS vars on toggle
+  useEffect(() => { applyTheme(dark); }, [dark]);
+
+  /* FETCH USER */
+  useEffect(() => {
+    getCurrentUser()
+      .then((data) => {
+        const u = data?.data ? data.data : data;
+        setUser(u);
+        if (u?.exp) {
+          const rem = u.exp - Math.floor(Date.now() / 1000);
+          setTimeLeft(rem > 0 ? rem : 0);
+        }
+        addToast(`Welcome back, ${u?.name || "User"}! 👋`, "success", 3000);
+      })
+      .catch(() => addToast("Failed to load user data.", "error"))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  /* SESSION COUNTDOWN */
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0) { if (timeLeft === 0) logout(); return; }
+    if (timeLeft === 120) addToast("⚠️ Session expires in 2 minutes!", "warning", 6000);
+    if (timeLeft === 30)  addToast("🚨 Session expiring in 30 seconds!", "error", 0);
+    const iv = setInterval(() => setTimeLeft((p) => { if (p <= 1) { clearInterval(iv); logout(); return 0; } return p - 1; }), 1000);
+    return () => clearInterval(iv);
+  }, [timeLeft]);
+
+  /* AUTO-REFRESH */
+  const refreshSession = useCallback(() => {
+    fetch("http://localhost:8000/refresh", { method: "POST", credentials: "include" })
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(() => getCurrentUser())
+      .then((data) => {
+        const u = data?.data || data; setUser(u);
+        if (u?.exp) { const rem = u.exp - Math.floor(Date.now() / 1000); setTimeLeft(rem > 0 ? rem : 0); }
+        addToast("Session refreshed ✅", "success", 3000);
+      })
+      .catch(() => { addToast("Session refresh failed. Logging out…", "error", 2000); setTimeout(logout, 2000); });
+  }, []);
+
+  useEffect(() => { if (timeLeft === 30) refreshSession(); }, [timeLeft, refreshSession]);
+
+  /* CLOSE DROPDOWN OUTSIDE */
+  useEffect(() => {
+    const h = (e) => { if (profileRef.current && !profileRef.current.contains(e.target)) setShowDropdown(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="layout">
+        <aside className="sidebar" style={{ background: "linear-gradient(180deg,#232382,#011651)", width: 250 }}>
+          <div className="logo"><Skeleton width={120} height={36} /></div>
+          <div className="menu">{[1,2,3,4,5].map((i) => <Skeleton key={i} width="90%" height={40} radius={10} style={{ marginBottom: 8 }} />)}</div>
+        </aside>
+        <main className="main"><div className="content-wrapper"><Skeleton width="100%" height={60} radius={18} /><DashboardSkeleton /></div></main>
+      </div>
+    );
+  }
+  if (!user) return <div className="center">Not authenticated. Please log in.</div>;
+
+  const role        = detectRole(user);
+  const themeColor  = ROLE_THEME[role]    || "#4e73df";
+  const menuItems   = SIDEBAR_MENUS[role] || [];
+  const pageTitle   = PAGE_TITLE[role];
+  const activeItem  = activeMenu ? menuItems.find((m) => m.label === activeMenu) || menuItems[0] : menuItems[0];
+  const isOverview  = !activeMenu || activeItem?.label === menuItems[0]?.label;
+  const unreadCount = SAMPLE_NOTIFICATIONS.filter((n) => n.unread).length;
+
+  const handleMenuClick = (label) => {
+    setActiveMenu(label);
+    setMobileSidebar(false);
+    if (label !== menuItems[0]?.label) addToast(`Navigated to ${label}`, "info", 2000);
+  };
+
+  return (
+    <div className="layout" style={{ background: "var(--bg-app)" }}>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <SearchBar role={role} onNavigate={handleMenuClick} dark={dark} />
+
+      {/* Notifications */}
+      <NotificationsPanel open={showNotifications} onClose={() => setShowNotifications(false)} themeColor={themeColor} dark={dark} />
+
+      {/* Profile Modal */}
+      {showProfile && <ProfilePage user={user} role={role} themeColor={themeColor} dark={dark} onClose={() => setShowProfile(false)} />}
+
+      {/* Mobile overlay */}
+      {mobileSidebar && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 6000 }}
+          onClick={() => setMobileSidebar(false)} />
+      )}
+
+      {/* ── SIDEBAR ─────────────────────────────────────────────── */}
+      <aside className="sidebar" style={{
+        background: "linear-gradient(180deg,#232382,#011651)",
+        width: sidebarOpen ? 250 : 72,
+        transition: "width 0.3s ease",
+        overflow: "hidden",
+        // Mobile: slide-in drawer
+        position: window.innerWidth <= 768 ? "fixed" : "relative",
+        left:     window.innerWidth <= 768 ? (mobileSidebar ? 0 : -260) : undefined,
+        top:      window.innerWidth <= 768 ? 0 : undefined,
+        height:   window.innerWidth <= 768 ? "100vh" : undefined,
+        zIndex:   window.innerWidth <= 768 ? 6100 : undefined,
+      }}>
+        <div style={{ display: "flex", alignItems: "center",
+          justifyContent: sidebarOpen ? "space-between" : "center",
+          padding: sidebarOpen ? "0 16px 24px" : "0 8px 24px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 16 }}>
+          {sidebarOpen && <img src={hdfcLogo} alt="HDFC" style={{ width: 120, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))" }} />}
+          <button onClick={() => { sidebarOpen ? setSidebarOpen(false) : setSidebarOpen(true); setMobileSidebar(false); }}
+            style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8,
+              color: "rgba(255,255,255,0.85)", cursor: "pointer", fontSize: 13,
+              width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}>
+            {sidebarOpen ? "◀" : "▶"}
+          </button>
+        </div>
+
+        <div className="menu">
+          {menuItems.map((item) => {
+            const isActive = activeItem?.label === item.label;
+            return (
+              <div key={item.label} className={`menu-item ${isActive ? "active" : ""}`}
+                onClick={() => handleMenuClick(item.label)}
+                title={!sidebarOpen ? item.label : undefined}
+                style={{ ...(isActive ? { backgroundColor: themeColor } : {}),
+                  display: "flex", alignItems: "center", gap: sidebarOpen ? 10 : 0,
+                  justifyContent: sidebarOpen ? "flex-start" : "center",
+                  padding: sidebarOpen ? "12px 18px" : "12px",
+                  whiteSpace: "nowrap", overflow: "hidden" }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
+                {sidebarOpen && <span style={{ fontSize: 14 }}>{item.label}</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sidebar user chip */}
+        {sidebarOpen && (
+          <div style={{ marginTop: "auto", padding: "16px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10,
+              background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: themeColor,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                {(user.preferred_username || "U").slice(0, 2).toUpperCase()}
+              </div>
+              <div style={{ overflow: "hidden" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#fff",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>{role}</div>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
-      {/* Main */}
+      {/* ── MAIN ───────────────────────────────────────────────── */}
       <main className="main">
         <div className="content-wrapper">
+
           {/* Topbar */}
-          <div
-            className="topbar"
-            style={{ backgroundColor: themeColor }}
-          >
-            <h1>{role.toUpperCase()} Dashboard</h1>
-            {/* <h1>Dashboard</h1> */}
-            <div className="profile">
-                <div
-                  className="profile-info"
-                  data-testid="profile-button"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                >
-                <span>{user.name}</span>
-                <img
-                  src="https://i.pravatar.cc/40"
-                  alt="avatar"
-                  className="avatar"
-                />
+          <div className="topbar" style={{ backgroundColor: themeColor }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {/* Mobile hamburger */}
+              <button className="hamburger" onClick={() => setMobileSidebar(true)}
+                style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8,
+                  color: "#fff", cursor: "pointer", fontSize: 18, width: 36, height: 36,
+                  display: "none", alignItems: "center", justifyContent: "center" }}>☰</button>
+              <div>
+                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{isOverview ? pageTitle : activeItem?.label}</h1>
+                {!isOverview && (
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ cursor: "pointer", textDecoration: "underline" }}
+                      onClick={() => setActiveMenu(menuItems[0]?.label)}>Overview</span>
+                    <span>›</span><span>{activeItem?.label}</span>
+                  </div>
+                )}
               </div>
+            </div>
 
-              {showDropdown && (
-                <div className="dropdown">
-                  <div>👤 View Profile</div>
-                  <div>✏ Edit Profile</div>
-                  <div>🔔 Notifications</div>
-                  <div>❓ Help & Support</div>
-                  <hr />
-                  <button className="logout" onClick={logout}>
-                    🚪 Logout
-                  </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* Search */}
+              <button onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "k", bubbles: true }))}
+                style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.15)",
+                  border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "7px 14px",
+                  color: "rgba(255,255,255,0.9)", fontSize: 13, cursor: "pointer" }}>
+                <span>🔍</span><span className="search-label">Search</span>
+                <kbd style={{ fontSize: 10, background: "rgba(255,255,255,0.15)", borderRadius: 4,
+                  padding: "1px 5px", border: "1px solid rgba(255,255,255,0.2)" }}>⌘K</kbd>
+              </button>
+
+              {/* Dark mode */}
+              <button onClick={() => setDark(!dark)} title="Toggle dark mode"
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 10, color: "#fff", cursor: "pointer", fontSize: 17,
+                  width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {dark ? "☀️" : "🌙"}
+              </button>
+
+              {/* Notifications */}
+              <button onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false); }}
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 10, color: "#fff", cursor: "pointer", fontSize: 17,
+                  width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center",
+                  position: "relative" }}>
+                🔔
+                {unreadCount > 0 && (
+                  <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444",
+                    color: "#fff", borderRadius: 99, fontSize: 10, fontWeight: 700,
+                    minWidth: 18, height: 18, display: "flex", alignItems: "center",
+                    justifyContent: "center", padding: "0 4px", border: "2px solid " + themeColor }}>
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Profile */}
+              <div className="profile" ref={profileRef}>
+                <div className="profile-info" onClick={() => setShowDropdown(!showDropdown)}>
+                  <span className="profile-name">{user.name}</span>
+                  <img src="https://i.pravatar.cc/40" alt="avatar" className="avatar" />
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Welcome Section */}
-          <div
-            className="welcome-card"
-            style={{ borderLeft: `6px solid ${themeColor}` }}
-          >
-            <div>
-              <h2>
-                {(() => {
-                  const hour = new Date().getHours();
-                  if (hour < 12) return "🌅 Good Morning";
-                  if (hour < 17) return "☀️ Good Afternoon";
-                  return "🌙 Good Evening";
-                })()}, {user.name} 👋
-              </h2>
-              <p>
-                Welcome back to your{" "}
-                <strong>{role.toUpperCase()}</strong> portal.
-              </p>
-
-              {timeLeft !== null && (
-                <span className="session">
-                  Session expires in {Math.floor(timeLeft / 60)}m{" "}
-                  {timeLeft % 60}s
-                </span>
-              )}
-            </div>
-
-            <img
-              src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png"
-              alt="illustration"
-            />
-          </div>
-
-          {/* Info Cards */}
-          <div className="card-row">
-            <div className="glass-card" style={{ "--card-color": themeColor }}>
-              <h3 style={{ color: themeColor }}>Personal Info</h3>
-              <p><b>Name:</b> {user.name}</p>
-              <p><b>Email:</b> {user.email}</p>
-              <p><b>Employee ID:</b> {user.employeeId}</p>
-            </div>
-
-            {role === "admin" && (
-              <div className="glass-card" style={{ "--card-color": themeColor }}>
-                <h3 style={{ color: themeColor }}>Access</h3>
-                <div className="badge-list">
-                  <span className="badge" style={{ backgroundColor: themeColor }}>Teams Overview</span>
-                  <span className="badge" style={{ backgroundColor: themeColor }}>Managers</span>
-                  <span className="badge" style={{ backgroundColor: themeColor }}>Company Analytics</span>
-                </div>
+                {showDropdown && (
+                  <div className="dropdown">
+                    <div onClick={() => { setShowProfile(true); setShowDropdown(false); }}>👤 View Profile</div>
+                    <div>✏ Edit Profile</div>
+                    <div onClick={() => { setShowNotifications(true); setShowDropdown(false); }}>🔔 Notifications {unreadCount > 0 && <span style={{ background: "#ef4444", color: "#fff", borderRadius: 99, fontSize: 10, padding: "1px 6px", marginLeft: 4 }}>{unreadCount}</span>}</div>
+                    <div onClick={() => setDark(!dark)}>{dark ? "☀️ Light Mode" : "🌙 Dark Mode"}</div>
+                    <div>❓ Help &amp; Support</div>
+                    <hr />
+                    <button className="logout" onClick={() => { addToast("Logging out…", "info", 1500); setTimeout(logout, 1500); }}>🚪 Logout</button>
+                  </div>
+                )}
               </div>
-            )}
-
-            <div className="glass-card" style={{ "--card-color": themeColor }}>
-              <h3 style={{ color: themeColor }}>Status</h3>
-              <p>🟢 Active</p>
-              <p>🔒 Protected</p>
             </div>
           </div>
 
-          {/* Chart */}
-          <div className="chart-card" style={{ "--chart-color": themeColor }}>
-            <h3 style={{ color: themeColor }}>Target vs Reality</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar
-                  dataKey="reality"
-                  fill={themeColor}
-                  radius={[6, 6, 0, 0]}
-                />
-                <Bar
-                  dataKey="target"
-                  fill="#ccc"
-                  radius={[6, 6, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Welcome card */}
+          {isOverview && (
+            <div className="welcome-card" style={{ borderLeft: `6px solid ${themeColor}` }}>
+              <div>
+                <h2>{(() => { const h = new Date().getHours(); return h < 12 ? "🌅 Good Morning" : h < 17 ? "☀️ Good Afternoon" : "🌙 Good Evening"; })()}, {user.name} 👋</h2>
+                <p>Welcome back to your <strong>{role.toUpperCase()}</strong> portal.</p>
+                {timeLeft !== null && (
+                  <span className="session" style={{ color: timeLeft <= 30 ? "#ef4444" : timeLeft <= 120 ? "#f97316" : undefined }}>
+                    ⏱ Session expires in {Math.floor(timeLeft / 60)}m {String(timeLeft % 60).padStart(2, "0")}s
+                  </span>
+                )}
+              </div>
+              <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="illustration" />
+            </div>
+          )}
+
+          {/* Content */}
+          {isOverview ? (
+            <>
+              {role === "admin"    && <AdminOverview    user={user} themeColor={themeColor} />}
+              {role === "manager"  && <ManagerOverview  themeColor={themeColor} />}
+              {role === "employee" && <EmployeeOverview user={user} themeColor={themeColor} />}
+              {role === "user"     && <UserOverview     user={user} themeColor={themeColor} />}
+            </>
+          ) : (
+            <ComingSoon item={activeItem} themeColor={themeColor} />
+          )}
         </div>
       </main>
     </div>
