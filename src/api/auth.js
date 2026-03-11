@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost";
 
 export function login() {
   window.location.href = `${API_BASE}/login`;
@@ -21,3 +21,4 @@ export async function getCurrentUser() {
   return result.data;  
 
 }
+
