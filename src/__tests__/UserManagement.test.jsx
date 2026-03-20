@@ -2,7 +2,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import UserManagement from "./Usermanagement";
+import UserManagement from "../pages/Usermanagement";
 
 // ─── Mock global fetch & alert ────────────────────────────────────────────────
 beforeEach(() => {

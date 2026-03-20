@@ -22,13 +22,13 @@ jest.mock("recharts", () => {
   };
 });
 
-jest.mock("./Usermanagement", () => () => (
+jest.mock("../pages/Usermanagement", () => () => (
   <div data-testid="user-management">User Management</div>
 ));
 
 // ─── Import mocked fns and Dashboard once (no resetModules) ──────────────────
 import { getCurrentUser, logout } from "../api/auth";
-import Dashboard from "./dashboard";
+import Dashboard from "../pages/dashboard";
 
 // ─── Clear mock call counts between tests (NOT resetModules) ─────────────────
 beforeEach(() => {
