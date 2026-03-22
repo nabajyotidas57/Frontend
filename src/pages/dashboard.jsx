@@ -89,6 +89,7 @@ const PAGE_TITLE = {
   user:     "User Dashboard",
 };
 
+
 function applyTheme(dark) {
   const r = document.documentElement;
   if (dark) {
@@ -109,6 +110,7 @@ function applyTheme(dark) {
     r.style.setProperty("--hover-bg",  "#f1f5f9");
   }
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ANIMATED COUNTER
@@ -963,6 +965,7 @@ function Dashboard() {
   const [showProfile, setShowProfile]             = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen]             = useState(true);
+  const [mobileOpen, setMobileOpen]               = useState(false); // ← NEW: mobile sidebar state
   const [dark, setDark]                           = useState(false);
   const [timeLeft, setTimeLeft]                   = useState(null);
   const profileRef                                = useRef(null);
@@ -971,126 +974,136 @@ function Dashboard() {
 
   useEffect(() => { applyTheme(dark); }, [dark]);
 
-  // Load user when dashboard starts
-useEffect(() => {
-  getCurrentUser()
-    .then((data) => {
-      const u = data?.data ? data.data : data;
-      setUser(u);
-
-      if (u?.exp) {
-        const rem = u.exp - Math.floor(Date.now() / 1000);
-        setTimeLeft(rem > 0 ? rem : 0);
-      }
-
-      if (!welcomeShown.current) {
-        welcomeShown.current = true;
-        addToast(`Welcome back, ${u?.name || "User"}! 👋`, "success", 3500);
-      }
-    })
-    .catch(() => addToast("Failed to load user data.", "error"))
-    .finally(() => setIsLoading(false));
-}, []);
-
-
-// Session countdown timer
-useEffect(() => {
-  if (timeLeft === null || timeLeft <= 0) {
-    if (timeLeft === 0) logout();
-    return;
-  }
-
-  if (timeLeft === 120)
-    addToast("⚠️ Session expires in 2 minutes!", "warning", 6000);
-
-  if (timeLeft === 30)
-    addToast("🚨 Session expiring in 30 seconds!", "error", 0);
-
-  const iv = setInterval(() => {
-    setTimeLeft((prev) => {
-      if (prev <= 1) {
-        clearInterval(iv);
-        logout();
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, 1000);
-
-  return () => clearInterval(iv);
-}, [timeLeft]);
-
-
-// Secure refresh function (CSRF protected)
-const refreshSession = useCallback(() => {
-
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrf_token="))
-    ?.split("=")[1];
-
-  fetch(`${API_BASE}/refresh`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "X-CSRF-Token": csrfToken || "",
-    },
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error();
-      return res.json();
-    })
-    .then(() => getCurrentUser())
-    .then((data) => {
-      const u = data?.data || data;
-
-      setUser(u);
-
-      if (u?.exp) {
-        const remaining = u.exp - Math.floor(Date.now() / 1000);
-        setTimeLeft(remaining > 0 ? remaining : 0);
-      }
-
-      addToast("Session refreshed ✅", "success", 3000);
-    })
-    .catch(() => {
-      addToast("Session refresh failed. Logging out…", "error", 2000);
-      setTimeout(logout, 2000);
-    });
-
-}, []);
-
-
-// Trigger refresh when 30 seconds left
-useEffect(() => {
-  if (timeLeft === 30) {
-    refreshSession();
-  }
-}, [timeLeft, refreshSession]);
-
-
-// Close profile dropdown when clicking outside
-useEffect(() => {
-  const handleClickOutside = (e) => {
-    if (profileRef.current && !profileRef.current.contains(e.target)) {
-      setShowDropdown(false);
+  // ── Sync body class for mobile scroll lock ──────────────────────────────────
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.classList.add("sidebar-open");
+    } else {
+      document.body.classList.remove("sidebar-open");
     }
-  };
+    return () => document.body.classList.remove("sidebar-open");
+  }, [mobileOpen]);
 
-  document.addEventListener("mousedown", handleClickOutside);
-  return () => document.removeEventListener("mousedown", handleClickOutside);
-}, []);
+  // Load user when dashboard starts
+  useEffect(() => {
+    getCurrentUser()
+      .then((data) => {
+        const u = data?.data ? data.data : data;
+        setUser(u);
+
+        if (u?.exp) {
+          const rem = u.exp - Math.floor(Date.now() / 1000);
+          setTimeLeft(rem > 0 ? rem : 0);
+        }
+
+        if (!welcomeShown.current) {
+          welcomeShown.current = true;
+          addToast(`Welcome back, ${u?.name || "User"}! 👋`, "success", 3500);
+        }
+      })
+      .catch(() => addToast("Failed to load user data.", "error"))
+      .finally(() => setIsLoading(false));
+  }, []);
 
 
-// Loading screen
-if (isLoading) {
-  return (
-    <div className="loading-screen">
-      <div className="spinner" />
-      <p className="loading-text">Loading dashboard…</p>
-    </div>
-  );
-}
+  // Session countdown timer
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0) {
+      if (timeLeft === 0) logout();
+      return;
+    }
+
+    if (timeLeft === 120)
+      addToast("⚠️ Session expires in 2 minutes!", "warning", 6000);
+
+    if (timeLeft === 30)
+      addToast("🚨 Session expiring in 30 seconds!", "error", 0);
+
+    const iv = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(iv);
+          logout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(iv);
+  }, [timeLeft]);
+
+
+  // Secure refresh function (CSRF protected)
+  const refreshSession = useCallback(() => {
+
+    const csrfToken = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("csrf_token="))
+      ?.split("=")[1];
+
+    fetch(`${API_BASE}/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "X-CSRF-Token": csrfToken || "",
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(() => getCurrentUser())
+      .then((data) => {
+        const u = data?.data || data;
+
+        setUser(u);
+
+        if (u?.exp) {
+          const remaining = u.exp - Math.floor(Date.now() / 1000);
+          setTimeLeft(remaining > 0 ? remaining : 0);
+        }
+
+        addToast("Session refreshed ✅", "success", 3000);
+      })
+      .catch(() => {
+        addToast("Session refresh failed. Logging out…", "error", 2000);
+        setTimeout(logout, 2000);
+      });
+
+  }, []);
+
+
+  // Trigger refresh when 30 seconds left
+  useEffect(() => {
+    if (timeLeft === 30) {
+      refreshSession();
+    }
+  }, [timeLeft, refreshSession]);
+
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
+  // Loading screen
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <p className="loading-text">Loading dashboard…</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -1147,8 +1160,17 @@ if (isLoading) {
         <ProfilePage user={user} role={role} themeColor={themeColor} onClose={() => setShowProfile(false)} />
       )}
 
+      {/* ── SIDEBAR BACKDROP (mobile only) ──────────────────── */}
+      <div
+        className={`sidebar-backdrop${mobileOpen ? " active" : ""}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
       {/* ── SIDEBAR ─────────────────────────────────────────── */}
-      <aside className="sidebar" style={{ width: sidebarOpen ? 250 : 72 }}>
+      <aside
+        className={`sidebar${mobileOpen ? " mobile-open" : ""}`}
+        style={{ width: sidebarOpen ? 250 : 72 }}
+      >
         <div className={`sidebar-logo-row${!sidebarOpen ? " collapsed" : ""}`}>
           {sidebarOpen && (
             <div className="sidebar-brand">
@@ -1173,6 +1195,7 @@ if (isLoading) {
                 onClick={() => {
                   if (item.route) { window.open(`${API_BASE}${item.route}`, "_blank"); return; }
                   setActiveMenu(item.label);
+                  setMobileOpen(false); // ← close sidebar on mobile after navigation
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
@@ -1204,6 +1227,16 @@ if (isLoading) {
           {/* Topbar */}
           <div className="topbar" style={{ backgroundColor: themeColor }}>
             <div className="topbar-left">
+
+              {/* Hamburger — visible only on mobile via CSS */}
+              <button
+                className="hamburger topbar-icon-btn"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? "✕" : "☰"}
+              </button>
+
               <div>
                 <h1>{isOverview ? pageTitle : activeItem?.label}</h1>
                 {!isOverview && (
@@ -1278,17 +1311,12 @@ if (isLoading) {
               <div>
                 <h2>{greeting}, {user.name} 👋</h2>
                 <p>Welcome back to your <strong>{role.toUpperCase()}</strong> portal.</p>
-                {timeLeft !== null && (
-                  <span className={`session-timer ${timerClass}`}>
-                    ⏱ Session: {Math.floor(timeLeft / 60)}m {String(timeLeft % 60).padStart(2, "0")}s
-                  </span>
-                )}
               </div>
               <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="illustration" />
             </div>
           )}
 
-          {/* ── CONTENT AREA — IdentityCard removed ── */}
+          {/* ── CONTENT AREA ── */}
           <div className="content-area">
             <div className="content-main">
               {renderContent()}
