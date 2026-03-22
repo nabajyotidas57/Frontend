@@ -314,7 +314,6 @@ function SearchBar({ role, onNavigate }) {
 // NOTIFICATIONS PANEL
 // ═══════════════════════════════════════════════════════════════════════════════
 const SAMPLE_NOTIFICATIONS = [
-  { id: 1, icon: "💰", title: "Salary Credited",        body: "₹85,000 credited to your account", time: "2 min ago",  unread: true,  color: "#10b981" },
   { id: 2, icon: "🔐", title: "Login from new device",  body: "Chrome · Mumbai · Mar 7 2026",      time: "15 min ago", unread: true,  color: "#f97316" },
   { id: 3, icon: "📄", title: "Invoice #INV-0041 Paid", body: "Acme Corp paid $4,200",             time: "1h ago",     unread: true,  color: "#6366f1" },
   { id: 4, icon: "⚠️", title: "Failed login attempt",   body: "3 failed attempts detected",        time: "3h ago",     unread: false, color: "#ef4444" },
@@ -500,7 +499,7 @@ function AdminOverview({ user, themeColor }) {
 
   return (
     <>
-      <div className="welcome-card" style={{ borderLeft: `6px solid ${themeColor}` }}>
+      <div className="welcome-card" >
         {[
           { label: "System Status",   val: "🟢 Operational" },
           { label: "Active Sessions", val: "384"             },
@@ -1222,108 +1221,113 @@ function Dashboard() {
 
       {/* ── MAIN ──────────────────────────────────────────── */}
       <main className="main">
-        <div className="content-wrapper">
 
-          {/* Topbar */}
-          <div className="topbar" style={{ backgroundColor: themeColor }}>
-            <div className="topbar-left">
+        {/* Topbar — sticky, outside content-wrapper */}
+        <div className="topbar" style={{ backgroundColor: themeColor }}>
+          <div className="topbar-left">
 
-              {/* Hamburger — visible only on mobile via CSS */}
-              <button
-                className="hamburger topbar-icon-btn"
-                onClick={() => setMobileOpen(!mobileOpen)}
-                aria-label="Toggle menu"
-              >
-                {mobileOpen ? "✕" : "☰"}
-              </button>
+            {/* Hamburger — visible only on mobile via CSS */}
+            <button
+              className="hamburger topbar-icon-btn"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle menu"
+            >
+              {mobileOpen ? "✕" : "☰"}
+            </button>
 
-              <div>
-                <h1>{isOverview ? pageTitle : activeItem?.label}</h1>
-                {!isOverview && (
-                  <div className="topbar-breadcrumb">
-                    <span className="topbar-breadcrumb-link" onClick={() => setActiveMenu(menuItems[0]?.label)}>Overview</span>
-                    <span>›</span>
-                    <span>{activeItem?.label}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="topbar-right">
-              {timeLeft !== null && (() => {
-                const mins = Math.floor(timeLeft / 60);
-                const secs = timeLeft % 60;
-                return (
-                  <div className={`session-timer ${timerClass}`}>
-                    <span>⏱</span>
-                    <span>{mins}m {String(secs).padStart(2, "0")}s</span>
-                    <span className="timer-label">session</span>
-                  </div>
-                );
-              })()}
-
-              <button
-                className="topbar-search-btn"
-                onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "k", bubbles: true }))}
-              >
-                <span>🔍</span>
-                <span className="search-label">Search</span>
-                <kbd>⌘K</kbd>
-              </button>
-
-              <button className="topbar-icon-btn" onClick={() => setDark(!dark)} title="Toggle dark mode">
-                {dark ? "☀️" : "🌙"}
-              </button>
-
-              <button className="topbar-icon-btn" onClick={() => setShowNotifications(!showNotifications)}>
-                🔔<span className="notif-dot" />
-              </button>
-
-              <div className="profile" ref={profileRef}>
-                <div className="profile-trigger" onClick={() => setShowDropdown(!showDropdown)}>
-                  <div className="profile-initials-circle">{initials}</div>
-                  <span className="profile-username">{user.preferred_username || user.name}</span>
+            <div>
+              <h1>{isOverview ? pageTitle : activeItem?.label}</h1>
+              {!isOverview && (
+                <div className="topbar-breadcrumb">
+                  <span className="topbar-breadcrumb-link" onClick={() => setActiveMenu(menuItems[0]?.label)}>Overview</span>
+                  <span>›</span>
+                  <span>{activeItem?.label}</span>
                 </div>
-                {showDropdown && (
-                  <div className="dropdown">
-                    <div className="dropdown-header">
-                      <div className="dropdown-name">{user.name}</div>
-                      <div className="dropdown-email">{user.email}</div>
-                    </div>
-                    {[
-                      { label: "👤 View Profile",    action: () => { setShowProfile(true); setShowDropdown(false); } },
-                      { label: dark ? "☀️ Light Mode" : "🌙 Dark Mode", action: () => { setDark(!dark); setShowDropdown(false); } },
-                      { label: "❓ Help & Support",  action: () => setShowDropdown(false) },
-                    ].map(({ label, action }) => (
-                      <div key={label} className="dropdown-item" onClick={action}>{label}</div>
-                    ))}
-                    <hr className="dropdown-divider" />
-                    <div className="dropdown-logout" onClick={logout}>🚪 Sign out</div>
+              )}
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            {timeLeft !== null && (() => {
+              const mins = Math.floor(timeLeft / 60);
+              const secs = timeLeft % 60;
+              return (
+                <div className={`session-timer ${timerClass}`}>
+                  <span>⏱</span>
+                  <span>{mins}m {String(secs).padStart(2, "0")}s</span>
+                  <span className="timer-label">session</span>
+                </div>
+              );
+            })()}
+
+            <button
+              className="topbar-search-btn"
+              onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "k", bubbles: true }))}
+            >
+              <span>🔍</span>
+              <span className="search-label">Search</span>
+              <kbd>⌘K</kbd>
+            </button>
+
+            <button className="topbar-icon-btn" onClick={() => setDark(!dark)} title="Toggle dark mode">
+              {dark ? "☀️" : "🌙"}
+            </button>
+
+            <button className="topbar-icon-btn" onClick={() => setShowNotifications(!showNotifications)}>
+              🔔<span className="notif-dot" />
+            </button>
+
+            <div className="profile" ref={profileRef}>
+              <div className="profile-trigger" onClick={() => setShowDropdown(!showDropdown)}>
+                <div className="profile-initials-circle">{initials}</div>
+                <span className="profile-username">{user.preferred_username || user.name}</span>
+              </div>
+              {showDropdown && (
+                <div className="dropdown">
+                  <div className="dropdown-header">
+                    <div className="dropdown-name">{user.name}</div>
+                    <div className="dropdown-email">{user.email}</div>
                   </div>
-                )}
-              </div>
+                  {[
+                    { label: "👤 View Profile",    action: () => { setShowProfile(true); setShowDropdown(false); } },
+                    { label: dark ? "☀️ Light Mode" : "🌙 Dark Mode", action: () => { setDark(!dark); setShowDropdown(false); } },
+                    { label: "❓ Help & Support",  action: () => setShowDropdown(false) },
+                  ].map(({ label, action }) => (
+                    <div key={label} className="dropdown-item" onClick={action}>{label}</div>
+                  ))}
+                  <hr className="dropdown-divider" />
+                  <div className="dropdown-logout" onClick={logout}>🚪 Sign out</div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Welcome banner */}
-          {isOverview && (
-            <div className="welcome-card" style={{ borderLeft: `6px solid ${themeColor}` }}>
-              <div>
-                <h2>{greeting}, {user.name} 👋</h2>
-                <p>Welcome back to your <strong>{role.toUpperCase()}</strong> portal.</p>
-              </div>
-              <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="illustration" />
-            </div>
-          )}
-
-          {/* ── CONTENT AREA ── */}
-          <div className="content-area">
-            <div className="content-main">
-              {renderContent()}
-            </div>
-          </div>
-
         </div>
+
+        {/* Scrollable content below sticky topbar */}
+        <div className="content-scroll">
+          <div className="content-wrapper">
+
+            {/* Welcome banner */}
+            {isOverview && (
+              <div className="welcome-card" >
+                <div>
+                  <h2>{greeting}, {user.name} 👋</h2>
+                  <p>Welcome back to your <strong>{role.toUpperCase()}</strong> portal.</p>
+                </div>
+                <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="illustration" />
+              </div>
+            )}
+
+            {/* ── CONTENT AREA ── */}
+            <div className="content-area">
+              <div className="content-main">
+                {renderContent()}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </main>
     </div>
   );
